@@ -161,7 +161,6 @@ int setup_server(struct sockaddr_in *addr)
     addr->sin_family = AF_INET;
     addr->sin_port   = 0;    // lets system decide the port
 
-
     if(bind(fd, (struct sockaddr *)addr, sizeof(struct sockaddr_in)) < 0)
     {
         perror("bind");
@@ -202,8 +201,8 @@ void find_port(struct sockaddr_in *addr, const char host_address[INET_ADDRSTRLEN
 
 int setup_client(struct sockaddr_in *addr, const char *addr_str, in_port_t port)
 {
-    int fd;
-    socklen_t addr_len;
+    int       fd;
+    socklen_t addr_len = sizeof(struct sockaddr);
 
     if(inet_pton(AF_INET, addr_str, &addr->sin_addr) <= 0)
     {
