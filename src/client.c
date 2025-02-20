@@ -7,8 +7,6 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#define MSGLEN 13
-
 typedef struct data_t
 {
     int                fd;
@@ -22,30 +20,27 @@ static volatile sig_atomic_t running = 1;    // NOLINT(cppcoreguidelines-avoid-n
 static void setup(data_t *d, const char *addr_str);
 static void setup_sig_handler(void);
 static void sig_handler(int sig);
-static void cleanup(const data_t *d);
 
 int main(int argc, char *argv[])
 {
-    data_t data     = {0};
-    char  *addr_str = NULL;
-    char  *port_str = NULL;
-    int    retval   = EXIT_SUCCESS;
-    char   buf[MSGLEN + 1];    // TEST
-    buf[MSGLEN] = '\0';
+    data_t      data     = {0};
+    char       *addr_str = NULL;
+    char       *port_str = NULL;
+    int         retval   = EXIT_SUCCESS;
+    const char *msg      = "Hello, World\n";    // TEST
 
     parse_args(argc, argv, &addr_str, &port_str, &data.port);
     setup(&data, addr_str);
 
     // TEST
 
-    read(data.fd, buf, MSGLEN);
-    write(STDOUT_FILENO, buf, MSGLEN + 1);
+    write(data.fd, msg, strlen(msg));
 
     // TEST
 
     /* Do stuff here */
 
-    cleanup(&data);
+    close(data.fd);
     exit(retval);
 }
 
@@ -85,14 +80,9 @@ static void setup_sig_handler(void)
 /* Write to stdout a shutdown message and set exit_flag to end while loop in main */
 static void sig_handler(int sig)
 {
-    const char *message = "\nSIGINT received. Server shutting down.\n";
+    const char *message = "\nSIGINT received. Client shutting down.\n";
     write(1, message, strlen(message));
     running = 0;
 }
 
 #pragma GCC diagnostic pop
-
-static void cleanup(const data_t *d)
-{
-    close(d->fd);
-}

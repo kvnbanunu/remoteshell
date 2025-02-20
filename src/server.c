@@ -7,6 +7,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#define MSGLEN 13
+
 typedef struct data_t
 {
     int                fd;
@@ -20,14 +22,14 @@ static volatile sig_atomic_t running = 1;    // NOLINT(cppcoreguidelines-avoid-n
 static void setup(data_t *d, char s[INET_ADDRSTRLEN]);
 static void setup_sig_handler(void);
 static void sig_handler(int sig);
-static void cleanup(const data_t *d);
 
 int main(void)
 {
-    data_t      data = {0};
-    char        addr_str[INET_ADDRSTRLEN];
-    int         retval = EXIT_SUCCESS;
-    const char *msg    = "Hello, World\n";    // TEST
+    data_t data = {0};
+    char   addr_str[INET_ADDRSTRLEN];
+    int    retval = EXIT_SUCCESS;
+    char   buf[MSGLEN + 1];    // TEST
+    buf[MSGLEN] = '\0';
 
     setup(&data, addr_str);
 
@@ -40,14 +42,24 @@ int main(void)
 
     // TEST
 
-    write(data.cfd, msg, strlen(msg));
+    while(running)
+    {
+        memset(buf, 0, MSGLEN);
+        if(read(data.cfd, buf, MSGLEN) < 1)
+        {
+            break;
+        }
+        write(STDOUT_FILENO, buf, MSGLEN + 1);
+    }
 
     // TEST
 
-    /* Do stuff here */
-
 cleanup:
-    cleanup(&data);
+    close(data.fd);
+    if(data.cfd > 0)
+    {
+        close(data.cfd);
+    }
     exit(retval);
 }
 
@@ -96,12 +108,3 @@ static void sig_handler(int sig)
 }
 
 #pragma GCC diagnostic pop
-
-static void cleanup(const data_t *d)
-{
-    close(d->fd);
-    if(d->cfd > 0)
-    {
-        close(d->cfd);
-    }
-}
