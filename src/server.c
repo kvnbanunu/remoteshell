@@ -1,13 +1,16 @@
 #include "../include/setup.h"
+#include <errno.h>
 #include <netinet/in.h>
 #include <signal.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <unistd.h>
 
-#define MSGLEN 13
+#define IN_MAX 255 // max 1 byte
 
 typedef struct data_t
 {
@@ -22,44 +25,57 @@ static volatile sig_atomic_t running = 1;    // NOLINT(cppcoreguidelines-avoid-n
 static void setup(data_t *d, char s[INET_ADDRSTRLEN]);
 static void setup_sig_handler(void);
 static void sig_handler(int sig);
+static int read_input(int fd, char *buf);
+static ssize_t read_fully(int fd, void *buf, size_t count);
 
 int main(void)
 {
     data_t data = {0};
     char   addr_str[INET_ADDRSTRLEN];
     int    retval = EXIT_SUCCESS;
-    char   buf[MSGLEN + 1];    // TEST
-    buf[MSGLEN] = '\0';
+    pid_t pid;
 
     setup(&data, addr_str);
 
-    data.cfd = accept(data.fd, NULL, 0);
-    if(data.cfd < 0)
-    {
-        retval = EXIT_FAILURE;
-        goto cleanup;
-    }
-
-    // TEST
-
     while(running)
     {
-        memset(buf, 0, MSGLEN);
-        if(read(data.cfd, buf, MSGLEN) < 1)
+        data.cfd = accept(data.fd, NULL, 0);
+        if(data.cfd < 0)
         {
+            perror("accept");
+            retval = EXIT_FAILURE;
             break;
         }
-        write(STDOUT_FILENO, buf, MSGLEN + 1);
-    }
 
-    // TEST
+        printf("Client connected\n");
 
-cleanup:
-    close(data.fd);
-    if(data.cfd > 0)
-    {
+        pid = fork();
+        if(pid < 0)
+        {
+            perror("fork");
+            retval = EXIT_FAILURE;
+            break;
+        }
+        if(pid == 0)
+        {
+            while(1)
+            {
+                char *buf;
+                ssize_t bytes_read;
+
+                bytes_read = read_input(data.cfd, buf);
+                if(bytes_read <= 0)
+                {
+                    // error or smt
+
+                }
+            }
+            close(data.cfd);
+            exit(retval);
+        }
         close(data.cfd);
     }
+    close(data.fd);
     exit(retval);
 }
 
@@ -108,3 +124,50 @@ static void sig_handler(int sig)
 }
 
 #pragma GCC diagnostic pop
+
+static int read_input(int fd, char *buf)
+{
+    uint8_t len;
+    ssize_t bytes_read;
+
+    if(read(fd, &len, 1) < 1)
+    {
+        perror("read len");
+        return -1;
+    }
+
+    buf = (char *)malloc(len + 1);
+    bytes_read = read(fd, buf, len);
+    if(bytes_read < len)
+    {
+        perror("read payload");
+        return -1;
+    }
+    
+    buf[len] = '\0';
+
+    return bytes_read;
+}
+
+static ssize_t read_fully(int fd, void *buf, size_t count)
+{
+    size_t bytes_read = 0;
+    while(bytes_read < count)
+    {
+        ssize_t res = read(fd, (char *)buf + bytes_read, count - bytes_read);
+        if (res == 0)
+        {
+            break; // EOF reached
+        }
+        if(res == -1)
+        {
+            if(errno == EINTR)
+            {
+                continue; // Interrupted, retry
+            }
+            return -1;
+        }
+        bytes_read += res;
+    }
+    return bytes_read;
+}
