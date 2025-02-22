@@ -43,17 +43,21 @@ Build with D'arcy's system:
    ```sh
    ./create-links.sh <path>
    ```
-2. Change compiler to gcc or clang
-   ```sh
-   ./change-compiler.sh -c <gcc or clang>
-   ```
-3. Generate cmakelist
+2. Generate cmakelist
    ```sh
    ./generate-cmakelists.sh
    ```
-4. Build
+3. Change compiler to gcc or clang
+   ```sh
+   ./change-compiler.sh -c <gcc or clang>
+   ```
+4. Build with chosen compiler
    ```sh
    ./build.sh
+   ```
+   Build with both gcc and clang
+   ```sh
+   ./build-all.sh
    ```
 
 Build with Make:
