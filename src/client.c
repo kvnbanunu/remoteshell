@@ -7,7 +7,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#define MAX_IN 256
+#define MAX_IN 1024
 
 typedef struct data_t
 {
@@ -40,10 +40,11 @@ int main(int argc, char *argv[])
 
         write(STDOUT_FILENO, shellprefix, strlen(shellprefix));
 
+        memset(buf, 0, MAX_IN);
         bytes_read = read(STDIN_FILENO, buf, MAX_IN - 1);
         if(bytes_read < 0)
         {
-            perror("read");
+            perror("read msg client");
             retval = EXIT_FAILURE;
             break;
         }
@@ -54,30 +55,31 @@ int main(int argc, char *argv[])
         bytes_read--;
         if(running)
         {
-            int     check = strcmp(buf, "exit");
-            uint8_t len   = (uint8_t)bytes_read;
-            write(data.fd, &len, 1);
+            uint16_t len = htons((uint16_t)bytes_read);
+            write(data.fd, &len, sizeof(uint16_t));
             write(data.fd, buf, (size_t)bytes_read);
             memset(buf, 0, MAX_IN);
 
-            bytes_read = read(data.fd, &len, 1);
+            bytes_read = read(data.fd, &len, sizeof(uint16_t));
             if(bytes_read <= 0)
             {
-                perror("read");
+                perror("read len client");
                 break;
             }
+            len        = ntohs(len);
             bytes_read = read(data.fd, buf, len);
             if(bytes_read <= 0)
             {
-                perror("read");
+                perror("read payload client");
                 break;
             }
             buf[bytes_read] = '\0';
-            printf("%s\n", buf);
-            if(!check)
+            if(strcmp(buf, "exit") == 0)
             {
+                running = 0;
                 break;
             }
+            printf("%s\n", buf);
         }
     }
 

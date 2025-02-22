@@ -11,7 +11,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#define MAX_IN 255
+#define MAX_IN 1024
 
 typedef struct data_t
 {
@@ -69,33 +69,38 @@ int main(void)
                 bytes_read = read_input(data.cfd, buf);
                 if(bytes_read <= 0)
                 {
-                    const char *errmsg = "No input found\n";
+                    const char *errmsg = "Client disconnected\n";
                     write(1, errmsg, strlen(errmsg));
                     break;
                 }
 
                 splitargs(buf, new_args);
-                if(getpath(new_args) == -1)
-                {
-                    const char *errmsg = "No input found\n";
-                    write(1, errmsg, strlen(errmsg));
-                    break;
-                }
-
-                cmdtype = checkcommand(new_args[0]);
+                cmdtype = getpath(new_args);
                 if(cmdtype == -1)
                 {
-                    const char *errmsg = "Unrecognized or unsupported command\n";
-                    uint8_t     len    = (uint8_t)strlen(errmsg);
-                    write(data.cfd, &len, 1);
-                    write(data.cfd, errmsg, strlen(errmsg));
+                    const char *errmsg = "Client disconnected\n";
+                    write(1, errmsg, strlen(errmsg));
+                    freeargs(new_args);
                     break;
                 }
-                if(cmdtype < C_LS)
+                if(cmdtype == 0)
                 {
-                    if(handlebuiltin(new_args, cmdtype, data.cfd) == 1)
+                    cmdtype = checkcommand(new_args[0]);
+                    if(cmdtype == -1)
                     {
-                        break;
+                        const char *errmsg = "Unrecognized or unsupported command\n";
+                        uint16_t    len    = htons((uint16_t)strlen(errmsg));
+                        write(data.cfd, &len, sizeof(uint16_t));
+                        write(data.cfd, errmsg, strlen(errmsg));
+                    }
+                    if(cmdtype < C_LS)
+                    {
+                        if(handlebuiltin(new_args, cmdtype, data.cfd) == 1)
+                        {
+                            freeargs(new_args);
+                            printf("Client exited\n");
+                            break;
+                        }
                     }
                 }
                 else
@@ -104,23 +109,21 @@ int main(void)
                     if(pid_ex < 0)
                     {
                         perror("fork");
-                        retval = EXIT_FAILURE;
                     }
-                    if(pid_ex == 0)    // gen3
+                    else if(pid_ex == 0)    // gen3
                     {
                         dup2(data.cfd, STDOUT_FILENO);
-                        if(execv(new_args[0], new_args) == -1)    // Run ls
+                        if(execv(new_args[0], new_args) == -1)
                         {
                             const char *errmsg = "No command found";
-                            uint8_t     len    = (uint8_t)strlen(errmsg);
-                            write(data.cfd, &len, 1);
+                            uint16_t    len    = htons((uint16_t)strlen(errmsg));
+                            write(data.cfd, &len, sizeof(uint16_t));
                             write(data.cfd, errmsg, strlen(errmsg));
                             perror("execv");
                             retval = EXIT_FAILURE;
                         }
                         freeargs(new_args);
                         close(data.cfd);
-                        close(data.fd);
                         exit(retval);
                     }
                     else    // gen2
@@ -190,14 +193,16 @@ static void sig_handler(int sig)
 
 static ssize_t read_input(int fd, char buf[])
 {
-    uint8_t len;
-    ssize_t bytes_read;
+    uint16_t len;
+    ssize_t  bytes_read;
 
-    if(read(fd, &len, 1) < 1)
+    if(read(fd, &len, sizeof(uint16_t)) <= 1)
     {
         perror("read len");
         return -1;
     }
+
+    len = ntohs(len);
 
     bytes_read = read(fd, buf, len);
     if(bytes_read < len)

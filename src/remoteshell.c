@@ -1,4 +1,5 @@
 #include "../include/remoteshell.h"
+#include <netinet/in.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,7 +38,7 @@ int getpath(char *args[])
     if(strcmp(args[0], "cat") == 0)
     {
         free(args[0]);
-        args[0] = strdup("/bin/ls");
+        args[0] = strdup("/bin/cat");
         return 1;
     }
     return 0;
@@ -66,8 +67,8 @@ static void send_pwd(int clientfd)
     char path[MAX_BUF];
     if(getcwd(path, MAX_BUF) != NULL)
     {
-        uint8_t len = (uint8_t)strlen(path);
-        write(clientfd, &len, 1);
+        uint16_t len = htons((uint16_t)strlen(path));
+        write(clientfd, &len, sizeof(uint16_t));
         write(clientfd, path, MAX_BUF);
     }
     else
@@ -81,15 +82,15 @@ static void send_echo(char *args[], int clientfd)
     if(args[1] == NULL)
     {
         const char *errmsg = "No arguments provided to echo\n";
-        uint8_t     len    = (uint8_t)strlen(errmsg);
-        write(clientfd, &len, 1);
+        uint16_t    len    = htons((uint16_t)strlen(errmsg));
+        write(clientfd, &len, sizeof(uint16_t));
         write(clientfd, errmsg, strlen(errmsg));
     }
     else
     {
-        char    buf[MAX_BUF];
-        size_t  curr = 0;
-        uint8_t len;
+        char     buf[MAX_BUF];
+        size_t   curr = 0;
+        uint16_t len;
 
         memset(buf, 0, MAX_BUF);
 
@@ -103,17 +104,17 @@ static void send_echo(char *args[], int clientfd)
                 curr += strlcat(buf + curr, " ", MAX_BUF - curr);
             }
         }
-        len = (uint8_t)curr;
-        write(clientfd, &len, 1);
+        len = htons((uint16_t)curr);
+        write(clientfd, &len, sizeof(uint16_t));
         write(clientfd, buf, curr);
     }
 }
 
 static void send_type(char *args[], int clientfd)
 {
-    uint8_t len;
-    int     cmdtype;
-    char    res[MAX_BUF];
+    uint16_t len;
+    int      cmdtype;
+    char     res[MAX_BUF];
     if(args[1] == NULL || checkcommand(args[1]) != -1)
     {
         snprintf(res, MAX_BUF, "type: not found\n");
@@ -130,8 +131,8 @@ static void send_type(char *args[], int clientfd)
         snprintf(res, MAX_BUF, "%s is a shell built-in\n", args[1]);
     }
 send:
-    len = (uint8_t)strlen(res);
-    write(clientfd, &len, 1);
+    len = htons((uint16_t)strlen(res));
+    write(clientfd, &len, sizeof(uint16_t));
     write(clientfd, res, len);
 }
 
@@ -139,7 +140,7 @@ send:
 static void send_cd(char *args[], int clientfd)
 {
     const char *res = NULL;
-    uint8_t     len;
+    uint16_t    len;
     if(args[1] == NULL)
     {
         res = "cd: No specified directory\n";
@@ -161,16 +162,16 @@ static void send_cd(char *args[], int clientfd)
         return;
     }
 send:
-    len = (uint8_t)strlen(res);
-    write(clientfd, &len, 1);
+    len = htons((uint16_t)strlen(res));
+    write(clientfd, &len, sizeof(uint16_t));
     write(clientfd, res, strlen(res));
 }
 
 static void send_exit(int clientfd)
 {
-    const char *res = "Exiting remote shell\n";
-    uint8_t     len = (uint8_t)strlen(res);
-    write(clientfd, &len, 1);
+    const char *res = "exit";
+    uint16_t    len = htons((uint8_t)strlen(res));
+    write(clientfd, &len, sizeof(uint16_t));
     write(clientfd, res, strlen(res));
 }
 
