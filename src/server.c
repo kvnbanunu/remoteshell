@@ -70,6 +70,7 @@ int main(void)
                 ssize_t bytes_read;
                 int     cmdtype;
 
+                memset(buf, 0, MAX_IN);
                 bytes_read = read_input(data.cfd, buf);
                 if(bytes_read <= 0)
                 {
