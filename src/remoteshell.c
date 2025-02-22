@@ -49,7 +49,7 @@ int checkcommand(const char *cmd)
     const char *builtins[NUMBUILTINS] = {"pwd", "echo", "type", "cd", "exit"};
     if(strcmp(cmd, "ls") == 0)
     {
-        return C_LS;    // means its ls
+        return C_LS;
     }
     for(int i = 0; i < NUMBUILTINS; i++)
     {
@@ -69,7 +69,7 @@ static void send_pwd(int clientfd)
     {
         uint16_t len = htons((uint16_t)strlen(path));
         write(clientfd, &len, sizeof(uint16_t));
-        write(clientfd, path, MAX_BUF);
+        write(clientfd, path, strlen(path));
     }
     else
     {
@@ -133,7 +133,7 @@ static void send_type(char *args[], int clientfd)
 send:
     len = htons((uint16_t)strlen(res));
     write(clientfd, &len, sizeof(uint16_t));
-    write(clientfd, res, len);
+    write(clientfd, res, strlen(res));
 }
 
 // cppcheck-suppress constParameter
