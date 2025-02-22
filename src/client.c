@@ -7,12 +7,13 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#define MAX_IN 256
+
 typedef struct data_t
 {
     int                fd;
     struct sockaddr_in addr;
-    // socklen_t          addr_len;
-    in_port_t port;
+    in_port_t          port;
 } data_t;
 
 static volatile sig_atomic_t running = 1;    // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
@@ -23,22 +24,61 @@ static void sig_handler(int sig);
 
 int main(int argc, char *argv[])
 {
-    data_t      data     = {0};
-    char       *addr_str = NULL;
-    char       *port_str = NULL;
-    int         retval   = EXIT_SUCCESS;
-    const char *msg      = "Hello, World\n";    // TEST
+    data_t      data        = {0};
+    char       *addr_str    = NULL;
+    char       *port_str    = NULL;
+    int         retval      = EXIT_SUCCESS;
+    const char *shellprefix = "remoteshell$ ";
 
     parse_args(argc, argv, &addr_str, &port_str, &data.port);
     setup(&data, addr_str);
 
-    // TEST
+    while(running)
+    {
+        char    buf[MAX_IN];
+        ssize_t bytes_read;
 
-    write(data.fd, msg, strlen(msg));
+        write(STDOUT_FILENO, shellprefix, strlen(shellprefix));
 
-    // TEST
+        bytes_read = read(STDIN_FILENO, buf, MAX_IN - 1);
+        if(bytes_read < 0)
+        {
+            perror("read");
+            retval = EXIT_FAILURE;
+            break;
+        }
+        if(bytes_read == 0)
+        {
+            continue;
+        }
+        if(running)
+        {
+            int     check = strcmp(buf, "exit");
+            uint8_t len   = (uint8_t)bytes_read;
+            write(data.fd, &len, 1);
+            write(data.fd, buf, (size_t)bytes_read);
+            memset(buf, 0, MAX_IN);
 
-    /* Do stuff here */
+            bytes_read = read(data.fd, &len, 1);
+            if(bytes_read <= 0)
+            {
+                perror("read");
+                break;
+            }
+            bytes_read = read(data.fd, buf, len);
+            if(bytes_read <= 0)
+            {
+                perror("read");
+                break;
+            }
+            buf[bytes_read] = '\0';
+            printf("%s\n", buf);
+            if(!check)
+            {
+                break;
+            }
+        }
+    }
 
     close(data.fd);
     exit(retval);

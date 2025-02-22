@@ -23,12 +23,8 @@ _Noreturn void usage(const char *prog_name, int exit_code, const char *message)
     {
         fprintf(stderr, "%s\n", message);
     }
-    fprintf(stderr, "usage: %s [-h] [-i] <address> [-p] <port>\n", prog_name);
-    fputs(" -h display this help message\n", stderr);
-    fputs("If no arguments are passed to this program, this client will bind to a random free port.\n", stderr);
-    fputs("The following are optional for the first player, but not for the second:\n", stderr);
-    fputs(" -i <address> ip address of another player\n", stderr);
-    fputs(" -p <port> port of another player\n", stderr);
+    fprintf(stderr, "usage: %s <address> <port>\n", prog_name);
+    fputs("-h display this help message\n", stderr);
     exit(exit_code);
 }
 

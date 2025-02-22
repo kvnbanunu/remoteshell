@@ -1,5 +1,5 @@
+#include "../include/remoteshell.h"
 #include "../include/setup.h"
-#include <errno.h>
 #include <netinet/in.h>
 #include <signal.h>
 #include <stdint.h>
@@ -8,9 +8,10 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
-#define IN_MAX 255 // max 1 byte
+#define MAX_IN 255
 
 typedef struct data_t
 {
@@ -22,23 +23,22 @@ typedef struct data_t
 
 static volatile sig_atomic_t running = 1;    // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
-static void setup(data_t *d, char s[INET_ADDRSTRLEN]);
-static void setup_sig_handler(void);
-static void sig_handler(int sig);
-static int read_input(int fd, char *buf);
-static ssize_t read_fully(int fd, void *buf, size_t count);
+static void    setup(data_t *d, char s[INET_ADDRSTRLEN]);
+static void    setup_sig_handler(void);
+static void    sig_handler(int sig);
+static ssize_t read_input(int fd, char buf[]);
 
 int main(void)
 {
     data_t data = {0};
     char   addr_str[INET_ADDRSTRLEN];
     int    retval = EXIT_SUCCESS;
-    pid_t pid;
 
     setup(&data, addr_str);
 
     while(running)
     {
+        pid_t pid;
         data.cfd = accept(data.fd, NULL, 0);
         if(data.cfd < 0)
         {
@@ -54,27 +54,87 @@ int main(void)
         {
             perror("fork");
             retval = EXIT_FAILURE;
+            close(data.cfd);
             break;
         }
-        if(pid == 0)
+        if(pid == 0)    // gen2
         {
             while(1)
             {
-                char *buf;
+                char    buf[MAX_IN];
+                char   *new_args[MAX_ARGS];
                 ssize_t bytes_read;
+                int     cmdtype;
 
                 bytes_read = read_input(data.cfd, buf);
                 if(bytes_read <= 0)
                 {
-                    // error or smt
-
+                    const char *errmsg = "No input found\n";
+                    write(1, errmsg, strlen(errmsg));
+                    break;
                 }
+
+                splitargs(buf, new_args);
+                if(getpath(new_args) == -1)
+                {
+                    const char *errmsg = "No input found\n";
+                    write(1, errmsg, strlen(errmsg));
+                    break;
+                }
+
+                cmdtype = checkcommand(new_args[0]);
+                if(cmdtype == -1)
+                {
+                    const char *errmsg = "Unrecognized or unsupported command\n";
+                    uint8_t     len    = (uint8_t)strlen(errmsg);
+                    write(data.cfd, &len, 1);
+                    write(data.cfd, errmsg, strlen(errmsg));
+                    break;
+                }
+                if(cmdtype < C_LS)
+                {
+                    handlebuiltin(new_args, cmdtype, data.cfd);
+                }
+                else
+                {
+                    pid_t pid_ex = fork();
+                    if(pid_ex < 0)
+                    {
+                        perror("fork");
+                        retval = EXIT_FAILURE;
+                    }
+                    if(pid_ex == 0)    // gen3
+                    {
+                        dup2(data.cfd, STDOUT_FILENO);
+                        if(execv(new_args[0], new_args) == -1)    // Run ls
+                        {
+                            const char *errmsg = "No command found";
+                            uint8_t     len    = (uint8_t)strlen(errmsg);
+                            write(data.cfd, &len, 1);
+                            write(data.cfd, errmsg, strlen(errmsg));
+                            perror("execv");
+                            retval = EXIT_FAILURE;
+                        }
+                        freeargs(new_args);
+                        close(data.cfd);
+                        close(data.fd);
+                        exit(retval);
+                    }
+                    else    // gen2
+                    {
+                        waitpid(pid_ex, NULL, 0);
+                    }
+                }
+                freeargs(new_args);
             }
+            // gen2
             close(data.cfd);
             exit(retval);
         }
+        // gen1
         close(data.cfd);
     }
+    // gen1
     close(data.fd);
     exit(retval);
 }
@@ -125,7 +185,7 @@ static void sig_handler(int sig)
 
 #pragma GCC diagnostic pop
 
-static int read_input(int fd, char *buf)
+static ssize_t read_input(int fd, char buf[])
 {
     uint8_t len;
     ssize_t bytes_read;
@@ -136,38 +196,12 @@ static int read_input(int fd, char *buf)
         return -1;
     }
 
-    buf = (char *)malloc(len + 1);
     bytes_read = read(fd, buf, len);
     if(bytes_read < len)
     {
         perror("read payload");
         return -1;
     }
-    
-    buf[len] = '\0';
 
-    return bytes_read;
-}
-
-static ssize_t read_fully(int fd, void *buf, size_t count)
-{
-    size_t bytes_read = 0;
-    while(bytes_read < count)
-    {
-        ssize_t res = read(fd, (char *)buf + bytes_read, count - bytes_read);
-        if (res == 0)
-        {
-            break; // EOF reached
-        }
-        if(res == -1)
-        {
-            if(errno == EINTR)
-            {
-                continue; // Interrupted, retry
-            }
-            return -1;
-        }
-        bytes_read += res;
-    }
     return bytes_read;
 }
