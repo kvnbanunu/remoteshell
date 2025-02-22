@@ -51,6 +51,7 @@ int main(int argc, char *argv[])
         {
             continue;
         }
+        bytes_read--;
         if(running)
         {
             int     check = strcmp(buf, "exit");

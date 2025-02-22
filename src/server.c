@@ -93,7 +93,10 @@ int main(void)
                 }
                 if(cmdtype < C_LS)
                 {
-                    handlebuiltin(new_args, cmdtype, data.cfd);
+                    if(handlebuiltin(new_args, cmdtype, data.cfd) == 1)
+                    {
+                        break;
+                    }
                 }
                 else
                 {
