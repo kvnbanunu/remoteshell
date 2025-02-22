@@ -11,8 +11,6 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#define MAX_IN 1024
-
 typedef struct data_t
 {
     int                fd;
@@ -65,12 +63,12 @@ int main(void)
         {
             while(1)
             {
-                char    buf[MAX_IN];
+                char    buf[MAX_BUF];
                 char   *new_args[MAX_ARGS];
                 ssize_t bytes_read;
                 int     cmdtype;
 
-                memset(buf, 0, MAX_IN);
+                memset(buf, 0, MAX_BUF);
                 bytes_read = read_input(data.cfd, buf);
                 if(bytes_read <= 0)
                 {

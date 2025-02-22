@@ -6,7 +6,8 @@
 #define BUILTIN 1
 #define NUMBUILTINS 5
 
-enum Commands {
+enum Commands
+{
     C_PWD,
     C_ECHO,
     C_TYPE,
@@ -16,9 +17,9 @@ enum Commands {
 };
 
 void splitargs(char buf[], char *args[]);
-int getpath(char *args[]);
-int checkcommand(const char *cmd);
-int handlebuiltin(char *args[], int cmdtype, int clientfd);
+int  getpath(char *args[]);
+int  checkcommand(const char *cmd);
+int  handlebuiltin(char *args[], int cmdtype, int clientfd);
 void freeargs(char *args[]);
 
-#endif // !REMOTESHELL_H
+#endif    // !REMOTESHELL_H

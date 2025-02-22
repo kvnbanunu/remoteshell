@@ -24,10 +24,9 @@ Tested Platforms:
 - Manjaro 24.2
 - Ubuntu 2024.04.1
 - MacOS 14.2 (clang only)
-- FreeBSD 14.0-RELEASE-p4
 
 Dependencies:
-- gcc or clang (Makefile specifies gcc)
+- gcc or clang (Makefile specifies clang)
 - make
 
 ---
@@ -57,8 +56,35 @@ Build with D'arcy's system:
    ./build.sh
    ```
 
+Build with Make:
+```sh
+make build
+```
+
 ---
 
 ## **Usage**
+
+Run with Make:
+- Server
+    ```sh
+    make server
+    ```
+
+- Client
+    ```sh
+    make client ARGS="ip port"
+    ```
+
+Run directly:
+- Server
+    ```sh
+    ./build/server
+    ```
+
+- Client
+    ```sh
+    ./build/client <ip> <port>
+    ```
 
 ---
