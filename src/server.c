@@ -42,6 +42,10 @@ int main(void)
         data.cfd = accept(data.fd, NULL, 0);
         if(data.cfd < 0)
         {
+            if(!running)
+            {
+                break;
+            }
             perror("accept");
             retval = EXIT_FAILURE;
             break;
@@ -70,6 +74,10 @@ int main(void)
                 if(bytes_read <= 0)
                 {
                     const char *errmsg = "Client disconnected\n";
+                    if(!running)
+                    {
+                        break;
+                    }
                     write(1, errmsg, strlen(errmsg));
                     break;
                 }
@@ -198,7 +206,6 @@ static ssize_t read_input(int fd, char buf[])
 
     if(read(fd, &len, sizeof(uint16_t)) <= 1)
     {
-        perror("read len");
         return -1;
     }
 
@@ -207,7 +214,6 @@ static ssize_t read_input(int fd, char buf[])
     bytes_read = read(fd, buf, len);
     if(bytes_read < len)
     {
-        perror("read payload");
         return -1;
     }
 

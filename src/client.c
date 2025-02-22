@@ -44,6 +44,10 @@ int main(int argc, char *argv[])
         bytes_read = read(STDIN_FILENO, buf, MAX_IN - 1);
         if(bytes_read < 0)
         {
+            if(!running)
+            {
+                break;
+            }
             perror("read msg client");
             retval = EXIT_FAILURE;
             break;
