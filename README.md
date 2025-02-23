@@ -17,7 +17,7 @@ Implementation of a remote shell over a TCP connection.
 This project uses a build system written by D'arcy Smith.
 
 To compile using the build system you need:
-- D'arcy's libraries built from [https://github.com/programming101dev/scripts]
+- D'Arcy's libraries built from [https://github.com/programming101dev/scripts]
 
 Tested Platforms:
 - Arch Linux 2024.12.01
